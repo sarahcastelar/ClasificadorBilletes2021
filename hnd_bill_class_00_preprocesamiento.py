@@ -203,7 +203,7 @@ def main():
 
     start_time = time.time()
 
-    for recorte_w_bg, full_no_bg, recorte_no_bg, in_path in map(process_file, all_paths[110:]):
+    for recorte_w_bg, full_no_bg, recorte_no_bg, in_path in map(process_file, all_paths[:]):
         root_path, filename = os.path.split(in_path)
 
         out_path = out_dir + "/" + filename
