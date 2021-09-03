@@ -2,13 +2,14 @@ import os
 import sys
 import time
 import math
-
+from concurrent.futures import ProcessPoolExecutor
 import cv2
 import numpy as np
 
 from sklearn.decomposition import PCA
 
-def removing_background(image, margen, iteraciones):
+
+def removing_background(image, margen, iteraciones, morph_k):
     # Basado en:
     # https://docs.opencv.org/master/d8/d83/tutorial_py_grabcut.html
     
@@ -28,12 +29,19 @@ def removing_background(image, margen, iteraciones):
                fgdModel, iteraciones, cv2.GC_INIT_WITH_RECT)
 
     bin_bg_mask = (mask == 2) | (mask == 0)
+
+    bg_mask = bin_bg_mask.astype(np.uint8) * 255
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(morph_k, morph_k))
+    # cv2.imshow("original", bg_mask)
+    bg_mask = cv2.morphologyEx(bg_mask, cv2.MORPH_CLOSE, kernel)
+    # cv2.imshow("abierta", bg_mask)
+    # cv2.waitKey()
     
     mask_2 = np.where(bin_bg_mask, 0, 1).astype('uint8')
     image = image * mask_2[:, :, np.newaxis]
     # cv.imshow("removing bg 1", image)
     
-    return image, bin_bg_mask
+    return image, bg_mask
 
 def resizing_image(image, scale):
     # resizing the image
@@ -50,6 +58,7 @@ def resizing_image(image, scale):
 
 def process_file(input_filename):
     img = cv2.imread(input_filename)
+    # print(input_filename)
 
     # si NO es horizontal ... rotar ... 
     if img.shape[0] > img.shape[1]:
@@ -59,6 +68,7 @@ def process_file(input_filename):
     margen = 10
     scale = 0.5
     iteraciones = 5
+    morfo_K = 5
 
     # imagen_peque = img
     
@@ -68,13 +78,13 @@ def process_file(input_filename):
     
     # Aplicar segmentacion ....
     imagen_peque, bg_mask = removing_background(imagen_peque, margen,
-                                                iteraciones)
+                                                iteraciones, morfo_K)
     # cv2.imshow("Sin background", imagen_peque)
     # cv2.imshow("mascara", bg_mask.astype(np.uint8) * 255)
     # cv2.waitKey()
 
     # Obtener el area del billete
-    fg_mask = np.logical_not(bg_mask).astype(np.uint8) * 255
+    fg_mask = 255 - bg_mask
     small_x, small_y, small_w, small_h = cv2.boundingRect(fg_mask)
 
     # small_cut = imagen_peque[small_y:small_y + small_h, small_x:small_x + small_w]
@@ -93,7 +103,7 @@ def process_file(input_filename):
 
     # aplicar la mascara de fondo a la resolucion original
     o_dim = img.shape[1], img.shape[0]
-    o_bg_mask = cv2.resize(bg_mask.astype(np.uint8) * 255, o_dim, interpolation=cv2.INTER_NEAREST)
+    o_bg_mask = cv2.resize(bg_mask, o_dim, interpolation=cv2.INTER_NEAREST)
 
     img_limpia = img.copy()
     img_limpia[o_bg_mask > 0, :] = 0, 0, 0
@@ -137,47 +147,6 @@ def process_file(input_filename):
         # cv2.waitKey()
         
 
-    """
-    # Probando PCA para determinar el eje de mayor varianza
-    # y si no esta cerca del eje horizontal... rotar!
-    o_fg_mask = 255 - o_bg_mask
-    pixels_y, pixels_x = np.nonzero(o_fg_mask)
-    pixels = np.vstack((pixels_x, pixels_y)).transpose()
-
-    pca = PCA(n_components=2)
-    pca.fit(pixels)
-    
-    angulo_o = math.acos(pca.components_[0][0] * 1.0)
-    angulo = angulo_o
-    # poner en rango adecuado....
-    while angulo < 0:
-        angulo += math.pi
-    while angulo > math.pi:
-        angulo -= math.pi
-
-    angulo_grados = (angulo / math.pi) * 180.0
-    print(angulo_grados)
-    if 10 <= angulo_grados <= 170:
-        print("Debe rotarse!")
-        print(angulo)
-        print(pca.components_)
-
-        cX = int(pca.mean_[0])
-        cY = int(pca.mean_[1])
-        r_h, r_w = img_limpia.shape[:2]
-
-        angulo_o_grados = (angulo_o / math.pi) * 180.0
-        print(angulo_o_grados)
-
-        M = cv2.getRotationMatrix2D((cX, cY), -angulo_o_grados, 1.0)
-        rotated = cv2.warpAffine(img_limpia, M, (r_w, r_h))
-
-        cv2.imshow("Antes", img_limpia)
-        cv2.imshow("Despues", rotated)
-        cv2.waitKey()
-        x = 0 / 0
-    """
-
     # cv2.imshow("Large BG rem", img_limpia)
     # cv2.imshow("Large BG", o_bg_mask)
     # cv2.waitKey()
@@ -203,12 +172,13 @@ def main():
 
     start_time = time.time()
 
-    for recorte_w_bg, full_no_bg, recorte_no_bg, in_path in map(process_file, all_paths[:]):
-        root_path, filename = os.path.split(in_path)
+    with ProcessPoolExecutor(max_workers=8) as executor: 
+        for recorte_w_bg, full_no_bg, recorte_no_bg, in_path in executor.map(process_file, all_paths[:]):
+            root_path, filename = os.path.split(in_path)
 
-        out_path = out_dir + "/" + filename
-        print(out_path)
-        cv2.imwrite(out_path, recorte_no_bg)
+            out_path = out_dir + "/" + filename
+            print(out_path)
+            cv2.imwrite(out_path, recorte_no_bg)
 
     end_time = time.time()
     print("Tiempo: ", (end_time - start_time), " segundos")
