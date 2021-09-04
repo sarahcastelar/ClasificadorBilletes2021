@@ -24,18 +24,26 @@ def main():
     plantillas = list()
 
     if len(sys.argv) < 4:
-        print('Missing Directory or File Name!!')
+        print("Usage: ")
+        print(f"\tpython {sys.argv[0]} img_dir out_csv algor plant_dir")
+        print("With:")
+        print("\timg_dir:\tInput image directory")
+        print("\tout_csv:\tOutput CSV file")
+        print("\talgorithm:\tSIFT or ORB")
+        print("\tplant_dir:\tTemplate Directory")
         return
+    
     directory = sys.argv[1]
     file_name = sys.argv[2]
     algo_type = sys.argv[3]
+    dir_plant = sys.argv[4]
 
     algo_type = det_algo_type(algo_type)
 
     # directory = "dir"
     start = time.time()
 
-    plantillas = get_plantillas()    
+    plantillas = get_plantillas(dir_plant)    
     print("Por favor espere.. se está analizando. Puede tardar.")
     
     indice = 0
@@ -47,6 +55,8 @@ def main():
     #print(file_paths)
     #print(path)
     #exit()
+
+    print("... procesando plantillas ... ")
 
     #Descriptors de Plantillas
     descriptors_temps = list()
@@ -60,6 +70,8 @@ def main():
             sift = cv.SIFT_create()
             kp2, des2 = sift.detectAndCompute(temp, None)
             descriptors_temps.append(des2)
+
+    print("... procesando imagenes ... ")
 
     #Parelizacion de Features del Dataset (keypoints y rgbs)
     with ProcessPoolExecutor(max_workers=8) as executor: 
@@ -172,8 +184,8 @@ def write_csv(rows, output):
         writer.writerows(rows)
 
 
-def get_plantillas():
-    path = './nuevas_plantillas/*.jpg'
+def get_plantillas(dir_path):
+    path = dir_path + '/*.jpg'
     images = [cv.imread(file) for file in glob.glob(path)]
     return images
 
