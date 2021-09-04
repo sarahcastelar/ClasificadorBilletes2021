@@ -1,7 +1,8 @@
 #USO:
 #& python .\hnd_bill_class_01_features.py 
-# .\preproc
-# caracs.csv sift
+# .\preproc (carpeta de imagenes preprocesadas)
+# caracs1.csv (nombre del csv output)
+# sift (algo a usar)
 
 from cv2 import data
 import numpy as np
@@ -14,11 +15,13 @@ import csv
 import os
 import sys
 import glob
+from concurrent.futures import ProcessPoolExecutor
+
 
 
 def main():
-    features = []
-    plantillas = []
+    features = list()
+    plantillas = list()
 
     if len(sys.argv) < 4:
         print('Missing Directory or File Name!!')
@@ -27,13 +30,7 @@ def main():
     file_name = sys.argv[2]
     algo_type = sys.argv[3]
 
-    if algo_type == 'orb' or algo_type == 'ORB':
-        algo_type = 'ORB'
-    elif algo_type == 'sift' or algo_type == 'SIFT':
-        algo_type = 'SIFT'
-    else:
-        print("Debe elegir ORB o SIFT")
-        exit()
+    algo_type = det_algo_type(algo_type)
 
     # directory = "dir"
     start = time.time()
@@ -43,80 +40,94 @@ def main():
     
     indice = 0
     file_names =  os.listdir(directory)
-    path = directory + '/*.jpg'
-    imagenes = [cv.imread(file) for file in glob.glob(path)]
+    file_paths = [directory + '/' + n for n in file_names]
+    #path = directory + '/*.jpg'
+    
+    #imagenes = [cv.imread(file) for file in glob.glob(path)]
+    #print(file_paths)
+    #print(path)
+    #exit()
 
-    for imagen in imagenes:
-        print("En imagen: ",file_names[indice])
-        print("Extrayendo keypoints")
-        row_keypoints = list()
-        row_keypoints = get_keypoints(algo_type,imagen,plantillas)
-        print("Extrayendo RGB features")
-        # features
-        row_features = getting_color_values(imagen)
-        row_keypoints.append(file_names[indice])
-        new_row = row_features + row_keypoints
-        features.append(new_row)
+    #Descriptors de Plantillas
+    descriptors_temps = list()
+    if algo_type == 'ORB':
+        for temp in plantillas:
+            orb = cv.ORB_create(nfeatures=1000)
+            kp2, des2 = orb.detectAndCompute(temp,None)
+            descriptors_temps.append(des2)
+    elif algo_type == 'SIFT':
+        for temp in plantillas:    
+            sift = cv.SIFT_create()
+            kp2, des2 = sift.detectAndCompute(temp, None)
+            descriptors_temps.append(des2)
 
-        indice+=1
-
-    # print(row_bgr)
-    # cv.waitKey(0)
-    # print(features)
+    #Parelizacion de Features del Dataset (keypoints y rgbs)
+    with ProcessPoolExecutor(max_workers=8) as executor: 
+        for imagen_path, descriptor, color_features in executor.map(get_keypoints, file_paths[:]):
+            root_path, filename = os.path.split(imagen_path)
+            print("En path: ", filename)
+            matches_bills = list()
+            if algo_type == 'ORB':
+                bf = cv.BFMatcher(cv.NORM_HAMMING,crossCheck = True)
+                st = time.time()
+                for desc in descriptors_temps:
+                    matches = bf.match(descriptor,desc)
+                    matches = sorted(matches,key = lambda x:x.distance)
+                    num_matches = len(matches)
+                    matches_bills.append(num_matches)
+                end = time.time()
+                print("tiempo: ", end - st)
+                #Normalizando keypoints
+                total_bill = sum(matches_bills)
+                for t in range(len(matches_bills)):
+                    if total_bill > 0:
+                        matches_bills[t] = round(matches_bills[t] / total_bill,5)
+            
+            elif algo_type == 'SIFT':
+                print("entra a sift")
+                # FLANN parameters
+                index = dict(algorithm=1, trees=5)
+                search = dict(checks=50)
+                flann = cv.FlannBasedMatcher(index, search)
+                st = time.time()
+                for desc in descriptors_temps:
+                    #good_matches = 0
+                    matches = flann.knnMatch(descriptor, desc, k=2)
+                    matches_bills.append(len(matches))
+                end = time.time()
+                print("tiempo: ", end - st)
+            matches_bills.append(filename)
+            row = color_features + matches_bills
+            features.append(row)
+            
     print("Escribiendo CSV")
+    print(features[0])
     write_csv(features, file_name)
     end = time.time()
     print("Tiempo: ", (end - start), " segundos")
     return
 
-def get_keypoints(algo_type,imagen,plantillas):
+def get_keypoints(imagen_path):
+    algo_type = det_algo_type(sys.argv[3])
+    imagen = cv.imread(imagen_path)
+
     if algo_type == 'ORB':
-        return get_keypoints_ORB(imagen,plantillas)
+        return imagen_path,get_keypoints_ORB(imagen),getting_color_values(imagen)
     elif algo_type == 'SIFT':
-        return get_keypoints_SIFT(imagen,plantillas)
+        return imagen_path,get_keypoints_SIFT(imagen),getting_color_values(imagen)
 
-def get_keypoints_SIFT(imagen, plantillas):
-    row_keypoints = []
-    class_id = 0
-    for plantilla in plantillas:
-        good_matches = 0
-        sift = cv.SIFT_create()
-        kp1, des1 = sift.detectAndCompute(imagen, None)
-        kp2, des2 = sift.detectAndCompute(plantilla, None)
-        # FLANN parameters
-        index = dict(algorithm=1, trees=5)
-        search = dict(checks=50)
-        flann = cv.FlannBasedMatcher(index, search)
-        matches = flann.knnMatch(des1, des2, k=2)
-        for i, (m, n) in enumerate(matches):
-            if m.distance < 0.7*n.distance:
-                good_matches += 1
-        row_keypoints.append(good_matches)
-    return row_keypoints
 
-def get_keypoints_ORB(imagen,plantillas):
+
+def get_keypoints_SIFT(imagen):
+    sift = cv.SIFT_create()
+    kp1, des1 = sift.detectAndCompute(imagen, None)
+    return des1
+
+def get_keypoints_ORB(imagen):
     roi_gray = cv.cvtColor(imagen,cv.COLOR_BGR2GRAY)
     orb = cv.ORB_create(nfeatures=1000)
     kp1, des1 = orb.detectAndCompute(roi_gray,None)
-    bf = cv.BFMatcher(cv.NORM_HAMMING,crossCheck = True)
-
-    matches_bills = list()
-    for temp in plantillas:
-        kp2, des2 = orb.detectAndCompute(temp,None)
-
-        matches = bf.match(des1,des2)
-        matches = sorted(matches,key = lambda x:x.distance)
-
-        num_matches = len(matches)
-        matches_bills.append(num_matches)
-    
-    #Normalizando keypoints
-    total_bill = sum(matches_bills)
-    for t in range(len(matches_bills)):
-        if total_bill > 0:
-            matches_bills[t] = round(matches_bills[t] / total_bill,5)
-    
-    return matches_bills
+    return des1
 
 def getting_color_values(image):
     colores = list()
@@ -130,8 +141,8 @@ def getting_color_values(image):
     # normalize the histogram, such that it sums to one
     hist = hist.astype("float")
     hist /= hist.sum()
-    bar = np.zeros((50, 300, 3), dtype="uint8")
-    startX = 0
+    #bar = np.zeros((50, 300, 3), dtype="uint8")
+    #startX = 0
     for (percent, color) in zip(hist, clt.cluster_centers_):  # BGR
         b = round(((color[0] / 255) - 0.406) / 0.225,3)
         g = round(((color[1] / 255) - 0.456) / 0.224,3)
@@ -139,10 +150,10 @@ def getting_color_values(image):
         colores.append(b)
         colores.append(g)
         colores.append(r)
-        endX = startX + (percent * 300)
-        cv.rectangle(bar, (int(startX), 0), (int(endX), 50),
-                     color.astype("uint8").tolist(), -1)
-        startX = endX
+        #endX = startX + (percent * 300)
+        #cv.rectangle(bar, (int(startX), 0), (int(endX), 50),
+        #             color.astype("uint8").tolist(), -1)
+        #startX = endX
     # # print(final_colors)
     # cv.imshow("palette", bar)
     # cv.waitKey(0)
@@ -166,6 +177,16 @@ def get_plantillas():
     images = [cv.imread(file) for file in glob.glob(path)]
     return images
 
+def det_algo_type(algo_type):
+    if algo_type == 'orb' or algo_type == 'ORB':
+        algo_type = 'ORB'
+        return algo_type
+    elif algo_type == 'sift' or algo_type == 'SIFT':
+        algo_type = 'SIFT'
+        return algo_type
+    else:
+        print("Debe elegir ORB o SIFT")
+        exit()
 
 if __name__ == '__main__':
     main()
