@@ -139,3 +139,4 @@ cython_debug/
 
 training_image_dataset
 training_processed
+*.pt
