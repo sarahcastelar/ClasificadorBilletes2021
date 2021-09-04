@@ -2,9 +2,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class Perito_Net(nn.Module):
+class LempiraNet(nn.Module):
     def __init__(self, ratio_width, ratio_height):
-        super(Perito_Net, self).__init__()
+        super(LempiraNet, self).__init__()
         self.ratio_width = ratio_width
         self.ratio_height = ratio_height
         # convolutional layers

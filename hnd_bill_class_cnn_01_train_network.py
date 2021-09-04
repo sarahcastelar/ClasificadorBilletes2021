@@ -1,4 +1,4 @@
-from perito_mercantil import Perito_Net
+from Lempira import LempiraNet
 from billetes_dataset import BilletesDataset
 from sys import argv
 from json import load
@@ -78,7 +78,7 @@ def main():
     # test_loader = torch.utils.data.DataLoader(
     #     test_data, batch_size=batch_size, num_workers=num_workers)
 
-    net = Perito_Net(ratio_width=4, ratio_height=4)
+    net = LempiraNet(ratio_width=4, ratio_height=4)
     # model_summary(net)
 
     # funcion de perdida (cross entropy loss)
