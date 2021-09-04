@@ -54,7 +54,7 @@ def main():
     epochs = 25
 
     trainset = BilletesDataset(
-        root_dir=in_dir, etiquetas=etiquetas, size=(256, 256))
+        root_dir=in_dir, etiquetas=etiquetas, size=(320, 128))
     # Finding indices for validation set
     num_train = len(trainset)
     indices = list(range(num_train))
@@ -78,8 +78,8 @@ def main():
     # test_loader = torch.utils.data.DataLoader(
     #     test_data, batch_size=batch_size, num_workers=num_workers)
 
-    net = LempiraNet(ratio_width=4, ratio_height=4)
-    # model_summary(net)
+    net = LempiraNet(ratio_width=5, ratio_height=2)
+    model_summary(net)
 
     # funcion de perdida (cross entropy loss)
     criterion = torch.nn.CrossEntropyLoss()
@@ -124,9 +124,9 @@ def main():
             # si las fallas llega a 10, se cierra el programa y se guarda el modelo
             fails += 1
             if fails >= 10:
+                print('Loss haven\'t decrease in a time! Saving Last Model')
                 torch.save(net.state_dict(), 'trained_model.pt')
                 minimum_validation_loss = valid_loss
-                print('Saving Last Model')
                 exit(0)
 
 
