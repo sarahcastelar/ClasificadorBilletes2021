@@ -38,12 +38,14 @@ def model_summary(model):
 
 
 def main():
-    if len(argv) < 3:
+    if len(argv) < 4:
         print("Uso:")
-        print(f"\tpython {argv[0]} in_tags in_dir")
+        print(f"\tpython {argv[0]} in_tags in_dir cuda")
         return
     in_etiquetas = argv[1]
     in_dir = argv[2]
+    use_cuda = argv[3] in ["True", "true", "enable", "yes", "Yes"]
+    device = 'cuda' if use_cuda and torch.cuda.is_available() else 'cpu'
     etiquetas = load(open(in_etiquetas, 'r'))
 
     # constants for training
@@ -79,6 +81,9 @@ def main():
     #     test_data, batch_size=batch_size, num_workers=num_workers)
 
     net = LempiraNet(ratio_width=5, ratio_height=2)
+    if use_cuda:
+        net = net.to(device)
+        print('Modelo enviado a CUDA')
     model_summary(net)
 
     # funcion de perdida (cross entropy loss)
@@ -114,7 +119,7 @@ def main():
             f'Epoch {epoch}\t Training Loss: {train_loss/len(train_loader)}\t Validation Loss:{valid_loss/len(valid_loader)}')
         # Guardando el modelo cada vez que la perdida de validación decrementa.
         if valid_loss <= minimum_validation_loss:
-            fails = 0 
+            fails = 0
             print(
                 f'Validation loss decreased from {round(minimum_validation_loss, 6)} to {round(valid_loss, 6)}')
             torch.save(net.state_dict(), 'trained_model.pt')
