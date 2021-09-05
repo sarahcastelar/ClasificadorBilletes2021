@@ -18,35 +18,74 @@ import glob
 from concurrent.futures import ProcessPoolExecutor
 
 
+def match_plantilla_SIFT(des_billete, desc_plantilla):
+    index = dict(algorithm=1, trees=5)
+    search = dict(checks=50)
+    flann = cv.FlannBasedMatcher(index, search)
+    
+    matches = flann.knnMatch(des_billete, desc_plantilla, k=2)
+
+    good_matches = 0
+    for i, (m, n) in enumerate(matches):
+        if m.distance < 0.7*n.distance:
+            good_matches += 1
+                            
+    return good_matches
+
+
+def match_plantilla_ORB(des_billete, desc_plantilla):
+    bf = cv.BFMatcher(cv.NORM_HAMMING,crossCheck = True)
+
+    matches = bf.match(des_billete, desc_plantilla)                    
+    # matches = sorted(matches,key = lambda x:x.distance)
+    good_matches = [x for x in matches if x.distance < 64]
+
+    print(f"Raw matches: {len(matches)}, Good matches: {len(good_matches)}")
+                                        
+    num_matches = len(good_matches)
+
+    return num_matches
+
 
 def main():
     features = list()
     plantillas = list()
 
     if len(sys.argv) < 4:
-        print('Missing Directory or File Name!!')
+        print("Usage: ")
+        print(f"\tpython {sys.argv[0]} img_dir out_csv algor plant_dir")
+        print("With:")
+        print("\timg_dir:\tInput image directory")
+        print("\tout_csv:\tOutput CSV file")
+        print("\talgorithm:\tSIFT or ORB")
+        print("\tplant_dir:\tTemplate Directory")
         return
+    
     directory = sys.argv[1]
     file_name = sys.argv[2]
     algo_type = sys.argv[3]
+    dir_plant = sys.argv[4]
 
     algo_type = det_algo_type(algo_type)
 
     # directory = "dir"
     start = time.time()
 
-    plantillas = get_plantillas()    
+    plantillas = get_plantillas(dir_plant)    
     print("Por favor espere.. se está analizando. Puede tardar.")
     
     indice = 0
     file_names =  os.listdir(directory)
     file_paths = [directory + '/' + n for n in file_names]
+    # file_paths = file_paths[:10]
     #path = directory + '/*.jpg'
     
     #imagenes = [cv.imread(file) for file in glob.glob(path)]
     #print(file_paths)
     #print(path)
     #exit()
+
+    print("... procesando plantillas ... ")
 
     #Descriptors de Plantillas
     descriptors_temps = list()
@@ -59,46 +98,49 @@ def main():
         for temp in plantillas:    
             sift = cv.SIFT_create()
             kp2, des2 = sift.detectAndCompute(temp, None)
-            descriptors_temps.append(des2)
+            descriptors_temps.append(des2)    
 
     #Parelizacion de Features del Dataset (keypoints y rgbs)
-    with ProcessPoolExecutor(max_workers=8) as executor: 
-        for imagen_path, descriptor, color_features in executor.map(get_keypoints, file_paths[:]):
-            root_path, filename = os.path.split(imagen_path)
-            print("En path: ", filename)
-            matches_bills = list()
-            if algo_type == 'ORB':
-                bf = cv.BFMatcher(cv.NORM_HAMMING,crossCheck = True)
-                st = time.time()
-                for desc in descriptors_temps:
-                    matches = bf.match(descriptor,desc)
-                    matches = sorted(matches,key = lambda x:x.distance)
-                    num_matches = len(matches)
-                    matches_bills.append(num_matches)
-                end = time.time()
-                print("tiempo: ", end - st)
-                #Normalizando keypoints
-                total_bill = sum(matches_bills)
-                for t in range(len(matches_bills)):
-                    if total_bill > 0:
-                        matches_bills[t] = round(matches_bills[t] / total_bill,5)
+    with ProcessPoolExecutor(max_workers=8) as executor:
+        print("... procesando imagenes ... ")
+        all_results = []
+        for imagen_path, descriptor, color_features in executor.map(get_keypoints, file_paths):
+            print("- completado: ", imagen_path)
+
+            all_results.append((imagen_path, descriptor, color_features))
             
-            elif algo_type == 'SIFT':
-                print("entra a sift")
-                # FLANN parameters
-                index = dict(algorithm=1, trees=5)
-                search = dict(checks=50)
-                flann = cv.FlannBasedMatcher(index, search)
-                st = time.time()
-                for desc in descriptors_temps:
-                    #good_matches = 0
-                    matches = flann.knnMatch(descriptor, desc, k=2)
-                    matches_bills.append(len(matches))
-                end = time.time()
-                print("tiempo: ", end - st)
+        print("... haciendo template matching ... ")
+        for imagen_path, descriptor, color_features in all_results:
+            root_path, filename = os.path.split(imagen_path)
+            
+            st = time.time()
+
+            print("- procesando: " + imagen_path)
+            
+            matches_bills = list()
+            ls_desc_billete = [descriptor] * len(descriptors_temps)
+            
+            if algo_type == 'ORB':
+                for good_matches in executor.map(match_plantilla_ORB, ls_desc_billete, descriptors_temps):
+                    matches_bills.append(good_matches)
+                                                
+            elif algo_type == 'SIFT':                                
+                for good_matches in executor.map(match_plantilla_SIFT, ls_desc_billete, descriptors_temps):
+                    matches_bills.append(good_matches)
+
+            #Normalizando keypoints
+            total_bill = sum(matches_bills)
+            for t in range(len(matches_bills)):
+                if total_bill > 0:
+                    matches_bills[t] = round(matches_bills[t] / total_bill,5)                    
+                                    
+            end = time.time()
+            print("tiempo: ", end - st)
+                
             matches_bills.append(filename)
             row = color_features + matches_bills
             features.append(row)
+            
             
     print("Escribiendo CSV")
     print(features[0])
@@ -172,9 +214,22 @@ def write_csv(rows, output):
         writer.writerows(rows)
 
 
-def get_plantillas():
-    path = './nuevas_plantillas/*.jpg'
-    images = [cv.imread(file) for file in glob.glob(path)]
+def get_plantillas(dir_path):
+    path = dir_path + '/*.jpg'
+    all_paths = []
+    for sub_path in glob.glob(path):
+        path, filename = os.path.split(sub_path)
+
+        parts = filename.split("_")
+        num = int(parts[0])
+        face = parts[1][0]
+
+        all_paths.append((num, face, sub_path))
+
+    all_paths = sorted(all_paths)
+
+    images = [cv.imread(file) for _, _, file in all_paths]
+
     return images
 
 def det_algo_type(algo_type):
