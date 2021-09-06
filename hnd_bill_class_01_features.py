@@ -101,7 +101,7 @@ def main():
             descriptors_temps.append(des2)    
 
     #Parelizacion de Features del Dataset (keypoints y rgbs)
-    with ProcessPoolExecutor(max_workers=8) as executor:
+    with ProcessPoolExecutor(max_workers=10) as executor:
         print("... procesando imagenes ... ")
         all_results = []
         for imagen_path, descriptor, color_features in executor.map(get_keypoints, file_paths):

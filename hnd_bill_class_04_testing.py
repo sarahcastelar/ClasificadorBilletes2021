@@ -15,12 +15,18 @@ warnings.filterwarnings('ignore')
 import json
 import re
 
-def Testing(datos,trained_classifier,output):
+def Testing(datos,scaler,trained_classifier,output):
+    # valores X
     x = datos.loc[:,datos.columns!='ID']
+    # aplicar normalizacion ... 
+    scaled_x = scaler.transform(x)
+    
     name_files = datos['ID']
 
+    # predecir ... 
     clf = trained_classifier
-    pred = clf.predict(x)
+    pred = clf.predict(scaled_x)
+    
     data = {}
     for i in range(len(name_files)):
         data[name_files[i]] = {}
@@ -51,12 +57,17 @@ def Testing(datos,trained_classifier,output):
 
 
 def main():
+    if len(sys.argv) < 4:
+        print("Uso:")
+        print(f"\tpython {sys.argv[0]} feat_csv class.joblib out_json")
+        return
+    
     classifier = sys.argv[2]
     output = sys.argv[3]
     if classifier.__contains__('.joblib') and output.__contains__('.json'):
         datos_csv = pd.read_csv(sys.argv[1])
-        trained_classifier = joblib.load(sys.argv[2])
-        Testing(datos_csv,trained_classifier,output)
+        scaler, trained_classifier = joblib.load(sys.argv[2])
+        Testing(datos_csv,scaler,trained_classifier,output)
     else:
         print("Archivo de entrada debe contener el formato .joblib al final")
         print("Archivo de output en formato json necesita .json al final")
