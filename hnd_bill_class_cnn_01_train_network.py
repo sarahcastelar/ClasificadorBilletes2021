@@ -53,10 +53,19 @@ def main():
     fails = 0
     batch_size = 36
     valid_size = 0.02
-    epochs = 25
+    epochs = 2500
+    preprocessed = False
+
+    # preprocesado
+    if preprocessed:
+        target_w, target_h = 320, 128
+        ratio_w, ratio_h = 5, 2
+    else:
+        target_w, target_h = 256, 256
+        ratio_w, ratio_h = 4, 4
 
     trainset = BilletesDataset(
-        root_dir=in_dir, etiquetas=etiquetas, size=(320, 128))
+        root_dir=in_dir, etiquetas=etiquetas, size=(target_w, target_h))
     # Finding indices for validation set
     num_train = len(trainset)
     indices = list(range(num_train))
@@ -80,7 +89,7 @@ def main():
     # test_loader = torch.utils.data.DataLoader(
     #     test_data, batch_size=batch_size, num_workers=num_workers)
 
-    net = LempiraNet(ratio_width=5, ratio_height=2)
+    net = LempiraNet(ratio_width=ratio_w, ratio_height=ratio_h)
     if use_cuda:
         net = net.to(device)
         print('Modelo enviado a CUDA')
@@ -89,7 +98,7 @@ def main():
     # funcion de perdida (cross entropy loss)
     criterion = torch.nn.CrossEntropyLoss()
     # optimizador
-    optimizer = torch.optim.SGD(net.parameters(), lr=0.01)
+    optimizer = torch.optim.SGD(net.parameters(), lr=0.001)
 
     # para llevar la perdida del set de validación
     minimum_validation_loss = np.inf
@@ -102,6 +111,10 @@ def main():
         net.train()
         for batch_index, (data, target) in enumerate(train_loader):
             optimizer.zero_grad()
+            if use_cuda:
+                data = data.cuda()
+                target = target.cuda()
+                
             output = net(data)
             loss = criterion(output, target)
             loss.backward()
@@ -111,6 +124,10 @@ def main():
         # validation steps
         net.eval()
         for batch_index, (data, target) in enumerate(valid_loader):
+            if use_cuda:
+                data = data.cuda()
+                target = target.cuda()
+                
             output = net(data)
             loss = criterion(output, target)
             valid_loss += loss.item()*data.size(0)
@@ -128,7 +145,7 @@ def main():
         else:
             # si las fallas llega a 10, se cierra el programa y se guarda el modelo
             fails += 1
-            if fails >= 10:
+            if fails >= 100:
                 print('Loss haven\'t decrease in a time! Saving Last Model')
                 torch.save(net.state_dict(), 'trained_model.pt')
                 minimum_validation_loss = valid_loss

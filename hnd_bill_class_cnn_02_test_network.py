@@ -17,8 +17,17 @@ def main():
     in_dir = sys.argv[2]
     out_json = sys.argv[3]
 
-    data = BilletesDataset(root_dir=in_dir, etiquetas={}, size=(320, 128))
-    model = LempiraNet(ratio_width=5, ratio_height=2)
+    preprocessed = False
+    if preprocessed:
+        target_w, target_h = 320, 128
+        ratio_w, ratio_h = 5, 2
+    else:
+        target_w, target_h = 256, 256
+        ratio_w, ratio_h = 4, 4
+    
+
+    data = BilletesDataset(root_dir=in_dir, etiquetas={}, size=(target_w, target_h))
+    model = LempiraNet(ratio_width=ratio_w, ratio_height=ratio_h)
     model.load_state_dict(torch.load(in_model))
     model.eval()
     loader = DataLoader(data, batch_size=1, shuffle=False)
