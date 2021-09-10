@@ -1,33 +1,113 @@
 import numpy as np
 import random
 import torch
+import cv2
+
 from torch.utils.data import Dataset
-from os import listdir
+from os.path import dirname
 from PIL import Image
 import torchvision.transforms.functional as TF
 
 
-class BilletesDataset(Dataset):
+class IndoorDataset(Dataset):
 
-    def __init__(self, root_dir, etiquetas, size, flip_chance=0.5, color_change_chance=0.10, gaussian_noise_chance=0.2, gaussian_noise_range=5.0, luminosity_changes_chance=0.125, transform=None):
+    def __init__(self, root_dir, img_files, training, size, max_padding, flip_chance=0.5, color_change_chance=0.10, gaussian_noise_chance=0.2, gaussian_noise_range=5.0, luminosity_changes_chance=0.125, transform=None):
         self.root_dir = root_dir
-        self.img_files = listdir(root_dir)
-        self.etiquetas = etiquetas
-        if self.etiquetas != {}:
+        self.img_files = img_files
+        self.training = training
+        if self.training:
             classes = []
             for img in self.img_files:
-                final_class = f"{self.etiquetas[img]['denominacion']}-{self.etiquetas[img]['lado']}"
-                self.etiquetas[img]['class'] = final_class
-                classes.append(final_class)
+                dir_name = dirname(img)
+                classes.append(dir_name)
             self.classes = sorted(list(set(classes)))
-        print(self.classes)
         self.transform = transform
         self.size = size
+        self.max_padding = max_padding
         self.flip_chance = flip_chance
         self.color_change_chance = color_change_chance
         self.gaussian_noise_chance = gaussian_noise_chance
         self.luminosity_changes_chance = luminosity_changes_chance
         self.gaussian_noise_range = gaussian_noise_range
+
+    def safe_cropping(self, pil_img):
+        img_width, img_height = pil_img.size
+        target_width, target_height = self.size
+
+        scale_w = target_width/img_width
+        scale_h = target_height/img_height
+
+        # usar menor escala
+        if scale_h >= scale_w:
+            # usa escala horizontal ..
+            # calcular padding proporcional
+            new_h = int(img_height * scale_w)
+
+            prop_padding = (target_height - new_h) / target_height
+
+            # verificar ...
+            if prop_padding > self.max_padding:
+                # la imagen requiere mas padding del permitido
+                # recortar Width (incrementara el valor de scale_w)
+
+                # primero calculamos cuanto deberia ser la altura de la imagen
+                # redimensionada antes de agregar MAX padding vertical
+                # ... maxima altura a ocupar con nueva escala ...
+                target_prepadded_h = target_height * (1 - self.max_padding)
+                # ... escala inversa para dicha altura ...
+                target_inv_scale_h = img_height / target_prepadded_h
+                # ... determinar el maximo ancho que produce target_w
+                # ... usando la escala objetivo que produce max_padding en H
+                max_source_w = int(round(target_width * target_inv_scale_h))
+
+                # ... sera necesario recortar la imagen original
+                # ... remueve parte del ancho, preserva largo
+                center_crop = (img_height, max_source_w)
+            else:
+                # no se necesita un corte
+                center_crop = None
+
+        else:
+            new_w = int(img_width * scale_h)
+
+            prop_padding = (target_width - new_w) / target_width
+
+            # verificar ...
+            if prop_padding > self.max_padding:
+                # la imagen requiere mas padding del permitido
+                # recortar Height (incrementara el valor de scale_h)
+
+                # primero calculamos cuanto deberia ser el ancho de la imagen
+                # redimensionada antes de agregar MAX padding horizontal
+                # ... maximo ancho a ocupar con nueva escala ...
+                target_prepadded_w = target_width * (1 - self.max_padding)
+                # ... escala inversa para dicha ancho ...
+                target_inv_scale_w = img_width / target_prepadded_w
+                # ... determinar la maxima altura que produce target_h
+                # ... usando la escala objetivo que produce max_padding en W
+                max_source_h = int(round(target_height * target_inv_scale_w))
+
+                # ... sera necesario recortar la imagen original
+                # ... remueve parte del largo, preserva ancho
+                center_crop = (max_source_h, img_width)
+            else:
+                # no se necesita un corte
+                center_crop = None
+
+        if center_crop is not None:
+            # apply center cropping ...
+            # debug_img = np.asarray(pil_img)
+            # debug_img = cv2.cvtColor(debug_img, cv2.COLOR_RGB2BGR)
+            # cv2.imshow("Pre cut Image", debug_img)
+
+            pil_img = TF.center_crop(pil_img, center_crop)
+
+            # debug_img = np.asarray(pil_img)
+            # debug_img = cv2.cvtColor(debug_img, cv2.COLOR_RGB2BGR)
+            # cv2.imshow("Post cut Image", debug_img)
+            # cv2.waitKey()
+
+        return pil_img
 
     def safe_resize(self, pil_img):
         img_width, img_height = pil_img.size
@@ -70,7 +150,13 @@ class BilletesDataset(Dataset):
 
     def __getitem__(self, idx):
         image_filename = self.img_files[idx]
-        pil_img = Image.open(f"{self.root_dir}/{image_filename}")
+        pil_img = Image.open(
+            f"{self.root_dir}/{image_filename}", mode='r',)
+        pil_img = pil_img.convert('RGB')
+
+        if self.max_padding is not None:
+            pil_img = self.safe_cropping(pil_img)
+
         pil_img = self.safe_resize(pil_img)
 
         if self.flip_chance is not None:
@@ -136,8 +222,8 @@ class BilletesDataset(Dataset):
 
         # convert to tensor
         img_tensor = TF.to_tensor(pil_img)
-        if self.etiquetas != {}:
-            final_class = self.etiquetas[image_filename]['class']
+        if self.training:
+            final_class = dirname(image_filename)
             return img_tensor, torch.tensor(self.classes.index(final_class))
         else:
             return img_tensor, image_filename
