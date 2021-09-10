@@ -75,4 +75,8 @@ def template_matching(algo_type,descriptor,descriptors_temps ):
             matches_bills[t] = round(matches_bills[t] / total_bill,5)    
 
     return matches_bills                
-        
+
+if __name__ == '__main__':
+    main()
+
+
