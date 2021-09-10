@@ -26,8 +26,9 @@ def main():
     fails = 0
     batch_size = 36
     valid_size = 0.1
-    epochs = 25
+    epochs = 500
     preprocessed = True
+    max_padding = 0.20
 
     if preprocessed:
         img_size = (320, 128)
@@ -37,7 +38,8 @@ def main():
         ratio_w, ratio_h = 4, 4
 
     trainset = IndoorDataset(
-        root_dir=in_dir, img_files=clean_lines, training=True, size=img_size)
+        root_dir=in_dir, img_files=clean_lines, training=True,
+        size=img_size, max_padding=max_padding)
     # Finding indices for validation set
     num_train = len(trainset)
     indices = list(range(num_train))
@@ -96,6 +98,10 @@ def main():
         # validation steps
         net.eval()
         for batch_index, (data, target) in enumerate(valid_loader):
+            if use_cuda:
+                data = data.cuda()
+                target = target.cuda()
+                
             output = net(data)
             loss = criterion(output, target)
             valid_loss += loss.item()*data.size(0)
@@ -111,9 +117,9 @@ def main():
             minimum_validation_loss = valid_loss
             print('Saving New Model')
         else:
-            # si las fallas llega a 100, se cierra el programa y se guarda el modelo
+            # si las fallas llega a 10, se cierra el programa y se guarda el modelo
             fails += 1
-            if fails >= 100:
+            if fails >= 10:
                 print('Loss haven\'t decrease in a time! Saving Last Model')
                 torch.save(net.state_dict(), model_out)
                 minimum_validation_loss = valid_loss
