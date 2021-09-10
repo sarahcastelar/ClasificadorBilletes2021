@@ -2,44 +2,27 @@ import numpy as np
 import random
 import torch
 from torch.utils.data import Dataset
-from os import listdir
+from os.path import dirname
 from PIL import Image
 import torchvision.transforms.functional as TF
 
 
-class BilletesDataset(Dataset):
+class IndoorDataset(Dataset):
 
-    def __init__(self, root_dir, etiquetas, size, flip_chance=0.5, color_change_chance=0.10, gaussian_noise_chance=0.2, gaussian_noise_range=5.0, luminosity_changes_chance=0.125, transform=None):
+    def __init__(self, root_dir, img_files, training, size, flip_chance=0.5, color_change_chance=0.10, gaussian_noise_chance=0.2, gaussian_noise_range=5.0, luminosity_changes_chance=0.125, transform=None):
         self.root_dir = root_dir
-        self.img_files = listdir(root_dir)
+        self.img_files = img_files
         self.transform = transform
+        self.training = training
         self.size = size
         self.flip_chance = flip_chance
         self.color_change_chance = color_change_chance
         self.gaussian_noise_chance = gaussian_noise_chance
         self.luminosity_changes_chance = luminosity_changes_chance
         self.gaussian_noise_range = gaussian_noise_range
-        self.etiquetas = etiquetas
-        self.classes = [
-            "1-frontal",
-            "1-reverso",
-            "2-frontal",
-            "2-reverso",
-            "5-frontal",
-            "5-reverso",
-            "10-frontal",
-            "10-reverso",
-            "20-frontal",
-            "20-reverso",
-            "50-frontal",
-            "50-reverso",
-            "100-frontal",
-            "100-reverso",
-            "200-frontal",
-            "200-reverso",
-            "500-frontal",
-            "500-reverso"
-        ]
+        self.classes = ['airport_inside', 'artstudio', 'auditorium', 'bakery', 'bar', 'bathroom', 'bedroom', 'bookstore', 'bowling', 'buffet', 'casino', 'children_room',
+                        'church_inside', 'classroom', 'cloister', 'closet', 'clothingstore', 'computerroom', 'concert_hall', 'corridor', 'deli', 'dentaloffice', 'dining_room', 'elevator', 'fastfood_restaurant', 'florist', 'gameroom', 'garage', 'greenhouse', 'grocerystore', 'gym', 'hairsalon', 'hospitalroom', 'inside_bus', 'inside_subway', 'jewelleryshop', 'kindergarden', 'kitchen', 'laboratorywet', 'laundromat', 'library', 'livingroom', 'lobby', 'locker_room',
+                        'mall', 'meeting_room', 'movietheater', 'museum', 'nursery', 'office', 'operating_room', 'pantry', 'poolinside', 'prisoncell', 'restaurant', 'restaurant_kitchen', 'shoeshop', 'stairscase', 'studiomusic', 'subway', 'toystore', 'trainstation', 'tv_studio', 'videostore', 'waitingroom', 'warehouse', 'winecellar']
 
     def safe_resize(self, pil_img):
         img_width, img_height = pil_img.size
@@ -82,7 +65,9 @@ class BilletesDataset(Dataset):
 
     def __getitem__(self, idx):
         image_filename = self.img_files[idx]
-        pil_img = Image.open(f"{self.root_dir}/{image_filename}")
+        pil_img = Image.open(
+            f"{self.root_dir}/{image_filename}", mode='r',)
+        pil_img = pil_img.convert('RGB')
         pil_img = self.safe_resize(pil_img)
 
         if self.flip_chance is not None:
@@ -148,8 +133,8 @@ class BilletesDataset(Dataset):
 
         # convert to tensor
         img_tensor = TF.to_tensor(pil_img)
-        if self.etiquetas != {}:
-            final_class = f"{self.etiquetas[image_filename]['denominacion']}-{self.etiquetas[image_filename]['lado']}"
+        if self.training:
+            final_class = dirname(image_filename)
             return img_tensor, torch.tensor(self.classes.index(final_class))
         else:
             return img_tensor, image_filename

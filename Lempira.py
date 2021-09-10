@@ -3,10 +3,11 @@ import torch.nn.functional as F
 
 
 class LempiraNet(nn.Module):
-    def __init__(self, ratio_width, ratio_height):
+    def __init__(self, ratio_width, ratio_height, out=18):
         super(LempiraNet, self).__init__()
         self.ratio_width = ratio_width
         self.ratio_height = ratio_height
+        self.out = out
         # convolutional layers
         self.conv1 = nn.Conv2d(3, 16, kernel_size=3, padding=1)
         self.conv2 = nn.Conv2d(16, 32, kernel_size=3, padding=1)
@@ -16,10 +17,10 @@ class LempiraNet(nn.Module):
         self.conv6 = nn.Conv2d(256, 512, kernel_size=3, padding=1)
 
         # linear layers
-        self.fc1 = nn.Linear(512*self.ratio_width*self.ratio_height, 768 )
-        self.fc2 = nn.Linear(768 , 256)
+        self.fc1 = nn.Linear(512*self.ratio_width*self.ratio_height, 768)
+        self.fc2 = nn.Linear(768, 256)
         self.fc3 = nn.Linear(256, 128)
-        self.fc4 = nn.Linear(128, 18)
+        self.fc4 = nn.Linear(128, self.out)
         # dropout
         self.dropout = nn.Dropout(p=0.2)
         # max pooling
@@ -31,6 +32,9 @@ class LempiraNet(nn.Module):
         self.norm4 = nn.BatchNorm2d(128)
         self.norm5 = nn.BatchNorm2d(256)
         self.norm6 = nn.BatchNorm2d(512)
+
+    def drop_last_layer(self):
+        self.fc4 = nn.Linear(128, self.out)
 
     def forward(self, x):
         # convolutional layers with ReLU and pooling
