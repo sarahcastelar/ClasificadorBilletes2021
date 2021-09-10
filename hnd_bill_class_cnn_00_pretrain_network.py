@@ -1,7 +1,6 @@
 from Lempira import LempiraNet
 from indoor_dataset import IndoorDataset
 from sys import argv
-from json import load
 import torch
 import numpy as np
 from torch.utils.data.sampler import SubsetRandomSampler
@@ -77,8 +76,8 @@ def main():
     minimum_validation_loss = np.inf
 
     for epoch in range(1, epochs+1):
-        train_loss = 0
-        valid_loss = 0
+        train_loss_sum = 0
+        valid_loss_sum = 0
 
         # training steps
         net.train()
@@ -88,12 +87,12 @@ def main():
             if use_cuda:
                 data = data.cuda()
                 target = target.cuda()
-                
+
             output = net(data)
             loss = criterion(output, target)
             loss.backward()
             optimizer.step()
-            train_loss += loss.item()*data.size(0)
+            train_loss_sum += loss.item()*data.size(0)
 
         # validation steps
         net.eval()
@@ -101,25 +100,26 @@ def main():
             if use_cuda:
                 data = data.cuda()
                 target = target.cuda()
-                
+
             output = net(data)
             loss = criterion(output, target)
-            valid_loss += loss.item()*data.size(0)
-
+            valid_loss_sum += loss.item()*data.size(0)
+        valid_loss = valid_loss_sum/(len(valid_loader)*batch_size)
+        train_loss = train_loss_sum/(len(train_loader)*batch_size)
         print(
-            f'Epoch {epoch}\t Training Loss: {train_loss/len(train_loader)}\t Validation Loss:{valid_loss/len(valid_loader)}')
+            f'Epoch {epoch}\t Training Loss: {train_loss}\t Validation Loss:{valid_loss}')
         # Guardando el modelo cada vez que la perdida de validación decrementa.
         if valid_loss <= minimum_validation_loss:
             fails = 0
             print(
                 f'Validation loss decreased from {round(minimum_validation_loss, 6)} to {round(valid_loss, 6)}')
-            torch.save(net.state_dict(), 'trained_model.pt')
+            torch.save(net.state_dict(), model_out)
             minimum_validation_loss = valid_loss
             print('Saving New Model')
         else:
             # si las fallas llega a 10, se cierra el programa y se guarda el modelo
             fails += 1
-            if fails >= 10:
+            if fails >= 100:
                 print('Loss haven\'t decrease in a time! Saving Last Model')
                 torch.save(net.state_dict(), model_out)
                 minimum_validation_loss = valid_loss

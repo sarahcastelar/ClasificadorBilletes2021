@@ -38,14 +38,19 @@ def model_summary(model):
 
 
 def main():
-    if len(argv) < 4:
+    if len(argv) < 5:
         print("Uso:")
-        print(f"\tpython {argv[0]} in_tags in_dir cuda")
+        print(
+            f"\tpython {argv[0]} in_tags in_dir cuda model_out trained_model")
         return
     in_etiquetas = argv[1]
     in_dir = argv[2]
     use_cuda = argv[3] in ["True", "true", "enable", "yes", "Yes"]
     device = 'cuda' if use_cuda and torch.cuda.is_available() else 'cpu'
+    model_out = argv[4]
+    pretrain = len(argv) == 6
+    model_name = argv[5] if pretrain else None
+
     etiquetas = load(open(in_etiquetas, 'r'))
 
     # constants for training
@@ -90,6 +95,12 @@ def main():
     #     test_data, batch_size=batch_size, num_workers=num_workers)
 
     net = LempiraNet(ratio_width=ratio_w, ratio_height=ratio_h)
+    if pretrain:
+        print("Model pre entrenado se botara la ultima layer")
+        net.load_state_dict(torch.load(
+            model_name, map_location=torch.device(device)))
+        net.drop_last_layer(len(trainset.classes))
+
     if use_cuda:
         net = net.to(device)
         print('Modelo enviado a CUDA')
@@ -104,8 +115,8 @@ def main():
     minimum_validation_loss = np.inf
 
     for epoch in range(1, epochs+1):
-        train_loss = 0
-        valid_loss = 0
+        train_loss_sum = 0
+        valid_loss_sum = 0
 
         # training steps
         net.train()
@@ -114,12 +125,12 @@ def main():
             if use_cuda:
                 data = data.cuda()
                 target = target.cuda()
-                
+
             output = net(data)
             loss = criterion(output, target)
             loss.backward()
             optimizer.step()
-            train_loss += loss.item()*data.size(0)
+            train_loss_sum += loss.item()*data.size(0)
 
         # validation steps
         net.eval()
@@ -127,19 +138,21 @@ def main():
             if use_cuda:
                 data = data.cuda()
                 target = target.cuda()
-                
+
             output = net(data)
             loss = criterion(output, target)
-            valid_loss += loss.item()*data.size(0)
+            valid_loss_sum += loss.item()*data.size(0)
 
+        valid_loss = valid_loss_sum/(len(valid_loader)*batch_size)
+        train_loss = train_loss_sum/(len(train_loader)*batch_size)
         print(
-            f'Epoch {epoch}\t Training Loss: {train_loss/len(train_loader)}\t Validation Loss:{valid_loss/len(valid_loader)}')
+            f'Epoch {epoch}\t Training Loss: {train_loss}\t Validation Loss:{valid_loss}')
         # Guardando el modelo cada vez que la perdida de validación decrementa.
         if valid_loss <= minimum_validation_loss:
             fails = 0
             print(
                 f'Validation loss decreased from {round(minimum_validation_loss, 6)} to {round(valid_loss, 6)}')
-            torch.save(net.state_dict(), 'trained_model.pt')
+            torch.save(net.state_dict(), model_out)
             minimum_validation_loss = valid_loss
             print('Saving New Model')
         else:
@@ -147,7 +160,7 @@ def main():
             fails += 1
             if fails >= 100:
                 print('Loss haven\'t decrease in a time! Saving Last Model')
-                torch.save(net.state_dict(), 'trained_model.pt')
+                torch.save(net.state_dict(), model_out)
                 minimum_validation_loss = valid_loss
                 exit(0)
 

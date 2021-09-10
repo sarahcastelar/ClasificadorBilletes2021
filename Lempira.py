@@ -33,7 +33,8 @@ class LempiraNet(nn.Module):
         self.norm5 = nn.BatchNorm2d(256)
         self.norm6 = nn.BatchNorm2d(512)
 
-    def drop_last_layer(self):
+    def drop_last_layer(self, new_out):
+        self.out = new_out
         self.fc4 = nn.Linear(128, self.out)
 
     def forward(self, x):
