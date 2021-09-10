@@ -27,9 +27,17 @@ def main():
     batch_size = 36
     valid_size = 0.1
     epochs = 25
+    preprocessed = True
+
+    if preprocessed:
+        img_size = (320, 128)
+        ratio_w, ratio_h = 5, 2
+    else:
+        img_size = (256, 256)
+        ratio_w, ratio_h = 4, 4
 
     trainset = IndoorDataset(
-        root_dir=in_dir, img_files=clean_lines, training=True, size=(320, 128))
+        root_dir=in_dir, img_files=clean_lines, training=True, size=img_size)
     # Finding indices for validation set
     num_train = len(trainset)
     indices = list(range(num_train))
@@ -53,7 +61,7 @@ def main():
     # test_loader = torch.utils.data.DataLoader(
     #     test_data, batch_size=batch_size, num_workers=num_workers)
 
-    net = LempiraNet(ratio_width=5, ratio_height=2, out=67)
+    net = LempiraNet(ratio_width=ratio_w, ratio_height=ratio_h, out=67)
     if use_cuda:
         net = net.to(device)
         print('Modelo enviado a CUDA')
@@ -74,6 +82,11 @@ def main():
         net.train()
         for batch_index, (data, target) in enumerate(train_loader):
             optimizer.zero_grad()
+
+            if use_cuda:
+                data = data.cuda()
+                target = target.cuda()
+                
             output = net(data)
             loss = criterion(output, target)
             loss.backward()
