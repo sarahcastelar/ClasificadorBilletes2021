@@ -12,6 +12,15 @@ class BilletesDataset(Dataset):
     def __init__(self, root_dir, etiquetas, size, flip_chance=0.5, color_change_chance=0.10, gaussian_noise_chance=0.2, gaussian_noise_range=5.0, luminosity_changes_chance=0.125, transform=None):
         self.root_dir = root_dir
         self.img_files = listdir(root_dir)
+        self.etiquetas = etiquetas
+        if self.etiquetas != {}:
+            classes = []
+            for img in self.img_files:
+                final_class = f"{self.etiquetas[img]['denominacion']}-{self.etiquetas[img]['lado']}"
+                self.etiquetas[img]['class'] = final_class
+                classes.append(final_class)
+            self.classes = sorted(list(set(classes)))
+        print(self.classes)
         self.transform = transform
         self.size = size
         self.flip_chance = flip_chance
@@ -19,27 +28,6 @@ class BilletesDataset(Dataset):
         self.gaussian_noise_chance = gaussian_noise_chance
         self.luminosity_changes_chance = luminosity_changes_chance
         self.gaussian_noise_range = gaussian_noise_range
-        self.etiquetas = etiquetas
-        self.classes = [
-            "1-frontal",
-            "1-reverso",
-            "2-frontal",
-            "2-reverso",
-            "5-frontal",
-            "5-reverso",
-            "10-frontal",
-            "10-reverso",
-            "20-frontal",
-            "20-reverso",
-            "50-frontal",
-            "50-reverso",
-            "100-frontal",
-            "100-reverso",
-            "200-frontal",
-            "200-reverso",
-            "500-frontal",
-            "500-reverso"
-        ]
 
     def safe_resize(self, pil_img):
         img_width, img_height = pil_img.size
@@ -149,7 +137,7 @@ class BilletesDataset(Dataset):
         # convert to tensor
         img_tensor = TF.to_tensor(pil_img)
         if self.etiquetas != {}:
-            final_class = f"{self.etiquetas[image_filename]['denominacion']}-{self.etiquetas[image_filename]['lado']}"
+            final_class = self.etiquetas[image_filename]['class']
             return img_tensor, torch.tensor(self.classes.index(final_class))
         else:
             return img_tensor, image_filename

@@ -14,8 +14,14 @@ class IndoorDataset(Dataset):
     def __init__(self, root_dir, img_files, training, size, max_padding, flip_chance=0.5, color_change_chance=0.10, gaussian_noise_chance=0.2, gaussian_noise_range=5.0, luminosity_changes_chance=0.125, transform=None):
         self.root_dir = root_dir
         self.img_files = img_files
-        self.transform = transform
         self.training = training
+        if self.training:
+            classes = []
+            for img in self.img_files:
+                dir_name = dirname(img)
+                classes.append(dir_name)
+            self.classes = sorted(list(set(classes)))
+        self.transform = transform
         self.size = size
         self.max_padding = max_padding
         self.flip_chance = flip_chance
@@ -23,9 +29,6 @@ class IndoorDataset(Dataset):
         self.gaussian_noise_chance = gaussian_noise_chance
         self.luminosity_changes_chance = luminosity_changes_chance
         self.gaussian_noise_range = gaussian_noise_range
-        self.classes = ['airport_inside', 'artstudio', 'auditorium', 'bakery', 'bar', 'bathroom', 'bedroom', 'bookstore', 'bowling', 'buffet', 'casino', 'children_room',
-                        'church_inside', 'classroom', 'cloister', 'closet', 'clothingstore', 'computerroom', 'concert_hall', 'corridor', 'deli', 'dentaloffice', 'dining_room', 'elevator', 'fastfood_restaurant', 'florist', 'gameroom', 'garage', 'greenhouse', 'grocerystore', 'gym', 'hairsalon', 'hospitalroom', 'inside_bus', 'inside_subway', 'jewelleryshop', 'kindergarden', 'kitchen', 'laboratorywet', 'laundromat', 'library', 'livingroom', 'lobby', 'locker_room',
-                        'mall', 'meeting_room', 'movietheater', 'museum', 'nursery', 'office', 'operating_room', 'pantry', 'poolinside', 'prisoncell', 'restaurant', 'restaurant_kitchen', 'shoeshop', 'stairscase', 'studiomusic', 'subway', 'toystore', 'trainstation', 'tv_studio', 'videostore', 'waitingroom', 'warehouse', 'winecellar']
 
     def safe_cropping(self, pil_img):
         img_width, img_height = pil_img.size
@@ -34,12 +37,12 @@ class IndoorDataset(Dataset):
         scale_w = target_width/img_width
         scale_h = target_height/img_height
 
-        # usar menor escala 
+        # usar menor escala
         if scale_h >= scale_w:
             # usa escala horizontal ..
             # calcular padding proporcional
             new_h = int(img_height * scale_w)
-            
+
             prop_padding = (target_height - new_h) / target_height
 
             # verificar ...
@@ -54,7 +57,7 @@ class IndoorDataset(Dataset):
                 # ... escala inversa para dicha altura ...
                 target_inv_scale_h = img_height / target_prepadded_h
                 # ... determinar el maximo ancho que produce target_w
-                # ... usando la escala objetivo que produce max_padding en H 
+                # ... usando la escala objetivo que produce max_padding en H
                 max_source_w = int(round(target_width * target_inv_scale_h))
 
                 # ... sera necesario recortar la imagen original
@@ -63,7 +66,7 @@ class IndoorDataset(Dataset):
             else:
                 # no se necesita un corte
                 center_crop = None
-                
+
         else:
             new_w = int(img_width * scale_h)
 
@@ -94,18 +97,18 @@ class IndoorDataset(Dataset):
         if center_crop is not None:
             # apply center cropping ...
             # debug_img = np.asarray(pil_img)
-            # debug_img = cv2.cvtColor(debug_img, cv2.COLOR_RGB2BGR)            
+            # debug_img = cv2.cvtColor(debug_img, cv2.COLOR_RGB2BGR)
             # cv2.imshow("Pre cut Image", debug_img)
 
             pil_img = TF.center_crop(pil_img, center_crop)
 
             # debug_img = np.asarray(pil_img)
-            # debug_img = cv2.cvtColor(debug_img, cv2.COLOR_RGB2BGR)            
-            # cv2.imshow("Post cut Image", debug_img)            
+            # debug_img = cv2.cvtColor(debug_img, cv2.COLOR_RGB2BGR)
+            # cv2.imshow("Post cut Image", debug_img)
             # cv2.waitKey()
-            
+
         return pil_img
-        
+
     def safe_resize(self, pil_img):
         img_width, img_height = pil_img.size
         target_width, target_height = self.size
@@ -145,8 +148,6 @@ class IndoorDataset(Dataset):
     def __len__(self):
         return len(self.img_files)
 
-    
-
     def __getitem__(self, idx):
         image_filename = self.img_files[idx]
         pil_img = Image.open(
@@ -155,7 +156,7 @@ class IndoorDataset(Dataset):
 
         if self.max_padding is not None:
             pil_img = self.safe_cropping(pil_img)
-            
+
         pil_img = self.safe_resize(pil_img)
 
         if self.flip_chance is not None:

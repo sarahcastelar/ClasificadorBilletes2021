@@ -24,32 +24,33 @@ def main():
     else:
         target_w, target_h = 256, 256
         ratio_w, ratio_h = 4, 4
-    
 
-    data = BilletesDataset(root_dir=in_dir, etiquetas={}, size=(target_w, target_h))
+    data = BilletesDataset(root_dir=in_dir, etiquetas={},
+                           size=(target_w, target_h))
     model = LempiraNet(ratio_width=ratio_w, ratio_height=ratio_h)
     model.load_state_dict(torch.load(in_model))
     model.eval()
     loader = DataLoader(data, batch_size=1, shuffle=False)
+
     classes = [
-        "1-frontal",
-        "1-reverso",
-        "2-frontal",
-        "2-reverso",
-        "5-frontal",
-        "5-reverso",
-        "10-frontal",
-        "10-reverso",
-        "20-frontal",
-        "20-reverso",
-        "50-frontal",
-        "50-reverso",
-        "100-frontal",
-        "100-reverso",
-        "200-frontal",
-        "200-reverso",
-        "500-frontal",
-        "500-reverso"
+        '1-frontal',
+        '1-reverso',
+        '10-frontal',
+        '10-reverso',
+        '100-frontal',
+        '100-reverso',
+        '2-frontal',
+        '2-reverso',
+        '20-frontal',
+        '20-reverso',
+        '200-frontal',
+        '200-reverso',
+        '5-frontal',
+        '5-reverso',
+        '50-frontal',
+        '50-reverso',
+        '500-frontal',
+        '500-reverso'
     ]
 
     output_dict = {}
