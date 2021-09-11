@@ -111,7 +111,6 @@ def main():
             
             matches_bills = list()
             ls_desc_billete = [descriptor] * len(descriptors_temps)
-            
             if algo_type == 'ORB':
                 for good_matches in executor.map(match_plantilla_ORB, ls_desc_billete, descriptors_temps):
                     matches_bills.append(good_matches)
@@ -169,7 +168,6 @@ def get_keypoints_ORB(imagen):
 
 
 def write_csv(rows, output, include_color):
-    
     if include_color:
         cols = ['B0', 'G0', 'R0', 'B1', 'G1', 'R1', 'B2', 'G2', 'R2',
             'B3', 'G3', 'R3', 'B4', 'G4', 'R4', 'B5', 'G5', 'R5',
