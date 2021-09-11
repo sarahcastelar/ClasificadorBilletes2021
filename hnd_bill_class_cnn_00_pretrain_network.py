@@ -9,13 +9,16 @@ from torch.utils.data.sampler import SubsetRandomSampler
 def main():
     if len(argv) < 4:
         print("Uso:")
-        print(f"\tpython {argv[0]} imgs_file in_dir model_out cuda")
+        print(f"\tpython {argv[0]} imgs_file in_dir model_out cuda reload")
         return
     imgs_file = argv[1]
     in_dir = argv[2]
     model_out = argv[3]
     use_cuda = argv[4] in ["True", "true", "enable", "yes", "Yes"]
     device = 'cuda' if use_cuda and torch.cuda.is_available() else 'cpu'
+    should_reload = False
+    if len(argv) == 6:
+        should_reload = True
     with open(imgs_file, 'r') as img_list:
         lines = img_list.readlines()
     clean_lines = list(map(lambda s: s.strip(), lines))
@@ -29,8 +32,8 @@ def main():
     preprocessed = True
     max_padding = 0.10
 
-    flip_chance=0.0
-    color_change_chance=0.1
+    flip_chance = 0.0
+    color_change_chance = 0.1
 
     if preprocessed:
         img_size = (320, 128)
@@ -67,6 +70,10 @@ def main():
     #     test_data, batch_size=batch_size, num_workers=num_workers)
 
     net = LempiraNet(ratio_width=ratio_w, ratio_height=ratio_h, out=67)
+    if should_reload:
+        net.load_state_dict(torch.load(
+            model_out, map_location=torch.device(device)))
+            
     if use_cuda:
         net = net.to(device)
         print('Modelo enviado a CUDA')
