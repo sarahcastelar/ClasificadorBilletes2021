@@ -59,7 +59,7 @@ def main():
     batch_size = 36
     valid_size = 0.02
     epochs = 2500
-    preprocessed = False
+    preprocessed = True
 
     # preprocesado
     if preprocessed:
@@ -94,12 +94,14 @@ def main():
     # test_loader = torch.utils.data.DataLoader(
     #     test_data, batch_size=batch_size, num_workers=num_workers)
 
-    net = LempiraNet(ratio_width=ratio_w, ratio_height=ratio_h)
     if pretrain:
         print("Model pre entrenado se botara la ultima layer")
+        net = LempiraNet(ratio_width=ratio_w, ratio_height=ratio_h, out=67)
         net.load_state_dict(torch.load(
             model_name, map_location=torch.device(device)))
         net.drop_last_layer(len(trainset.classes))
+    else:
+        net = LempiraNet(ratio_width=ratio_w, ratio_height=ratio_h)
 
     if use_cuda:
         net = net.to(device)

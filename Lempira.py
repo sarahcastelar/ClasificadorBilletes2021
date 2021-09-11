@@ -33,6 +33,10 @@ class LempiraNet(nn.Module):
         self.norm5 = nn.BatchNorm2d(256)
         self.norm6 = nn.BatchNorm2d(512)
 
+        self.norm_fc1 = nn.BatchNorm1d(768)
+        self.norm_fc2 = nn.BatchNorm1d(256)
+        self.norm_fc3 = nn.BatchNorm1d(128)
+
     def drop_last_layer(self, new_out):
         self.out = new_out
         self.fc4 = nn.Linear(128, self.out)
@@ -48,9 +52,9 @@ class LempiraNet(nn.Module):
         # flattening the image
         x = x.view(-1,  512*self.ratio_width*self.ratio_height)
         # linear layers
-        x = self.dropout(F.relu(self.fc1(x)))
-        x = self.dropout(F.relu(self.fc2(x)))
-        x = self.dropout(F.relu(self.fc3(x)))
+        x = self.dropout(F.relu(self.norm_fc1(self.fc1(x))))
+        x = self.dropout(F.relu(self.norm_fc2(self.fc2(x))))
+        x = self.dropout(F.relu(self.norm_fc3(self.fc3(x))))
         x = self.fc4(x)
 
         return x

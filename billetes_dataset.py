@@ -20,7 +20,7 @@ class BilletesDataset(Dataset):
                 self.etiquetas[img]['class'] = final_class
                 classes.append(final_class)
             self.classes = sorted(list(set(classes)))
-        print(self.classes)
+        
         self.transform = transform
         self.size = size
         self.flip_chance = flip_chance

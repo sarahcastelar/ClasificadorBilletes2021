@@ -23,11 +23,14 @@ def main():
     # constants for training
     num_workers = 0
     fails = 0
-    batch_size = 36
+    batch_size = 32
     valid_size = 0.1
-    epochs = 500
+    epochs = 5000
     preprocessed = True
-    max_padding = 0.20
+    max_padding = 0.10
+
+    flip_chance=0.0
+    color_change_chance=0.1
 
     if preprocessed:
         img_size = (320, 128)
@@ -38,7 +41,8 @@ def main():
 
     trainset = IndoorDataset(
         root_dir=in_dir, img_files=clean_lines, training=True,
-        size=img_size, max_padding=max_padding)
+        size=img_size, max_padding=max_padding,
+        flip_chance=flip_chance, color_change_chance=color_change_chance)
     # Finding indices for validation set
     num_train = len(trainset)
     indices = list(range(num_train))
@@ -70,7 +74,7 @@ def main():
     # funcion de perdida (cross entropy loss)
     criterion = torch.nn.CrossEntropyLoss()
     # optimizador
-    optimizer = torch.optim.SGD(net.parameters(), lr=0.01)
+    optimizer = torch.optim.SGD(net.parameters(), lr=0.001)
 
     # para llevar la perdida del set de validación
     minimum_validation_loss = np.inf
