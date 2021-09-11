@@ -90,17 +90,7 @@ def main():
     print("... procesando plantillas ... ")
 
     #Descriptors de Plantillas
-    descriptors_temps = list()
-    if algo_type == 'ORB':
-        for temp in plantillas:
-            orb = cv.ORB_create(nfeatures=1000)
-            kp2, des2 = orb.detectAndCompute(temp,None)
-            descriptors_temps.append(des2)
-    elif algo_type == 'SIFT':
-        for temp in plantillas:    
-            sift = cv.SIFT_create()
-            kp2, des2 = sift.detectAndCompute(temp, None)
-            descriptors_temps.append(des2)    
+    descriptors_temps = get_descriptors_plants(algo_type,plantillas)   
 
     #Parelizacion de Features del Dataset (keypoints y rgbs)
     with ProcessPoolExecutor(max_workers=10) as executor:
@@ -214,6 +204,22 @@ def get_plantillas(dir_path):
     images = [cv.imread(file) for _, _, file in all_paths]
 
     return images
+
+def get_descriptors_plants(algo_type,plantillas):
+    #Descriptors de Plantillas
+    descriptors_temps = list()
+    if algo_type == 'ORB':
+        for temp in plantillas:
+            orb = cv.ORB_create(nfeatures=1000)
+            kp2, des2 = orb.detectAndCompute(temp,None)
+            descriptors_temps.append(des2)
+    elif algo_type == 'SIFT':
+        for temp in plantillas:    
+            sift = cv.SIFT_create()
+            kp2, des2 = sift.detectAndCompute(temp, None)
+            descriptors_temps.append(des2) 
+    return descriptors_temps
+
 
 def det_algo_type(algo_type):
     if algo_type == 'orb' or algo_type == 'ORB':
