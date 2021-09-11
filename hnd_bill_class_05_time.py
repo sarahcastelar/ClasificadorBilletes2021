@@ -15,6 +15,7 @@ from sklearn.preprocessing import StandardScaler
 
 
 def main():
+    print("hola")
     if len(sys.argv) < 5:
         print("Uso:")
         print("img_dir dir_plantillas preproc[yes/no] algo_type .joblib")
@@ -26,7 +27,7 @@ def main():
     algo_type = sys.argv[4]
     class_joblib = sys.argv[5]
 
-    root_path, filename = os.path.split(in_dir)
+    #root_path, filename = os.path.split(in_dir)
 
     start_time = time.time()
     img = None

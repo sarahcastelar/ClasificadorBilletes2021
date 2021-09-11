@@ -17,7 +17,7 @@ def main():
     in_dir = sys.argv[2]
     out_json = sys.argv[3]
 
-    preprocessed = False
+    preprocessed = True
     if preprocessed:
         target_w, target_h = 320, 128
         ratio_w, ratio_h = 5, 2
