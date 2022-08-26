@@ -41,14 +41,15 @@ def main():
     if len(argv) < 5:
         print("Uso:")
         print(
-            f"\tpython {argv[0]} in_tags in_dir cuda model_out trained_model")
+            f"\tpython {argv[0]} in_tags in_dir cuda model_out use_resnet trained_model")
         return
     in_etiquetas = argv[1]
     in_dir = argv[2]
     use_cuda = argv[3] in ["True", "true", "enable", "yes", "Yes"]
     device = 'cuda' if use_cuda and torch.cuda.is_available() else 'cpu'
     model_out = argv[4]
-    pretrain = len(argv) == 6
+    use_resnet = argv[5] in ["True", "true", "enable", "yes", "Yes"]
+    pretrain = len(argv) == 7
     model_name = argv[5] if pretrain else None
 
     etiquetas = load(open(in_etiquetas, 'r'))
@@ -94,19 +95,25 @@ def main():
     # test_loader = torch.utils.data.DataLoader(
     #     test_data, batch_size=batch_size, num_workers=num_workers)
 
-    if pretrain:
+    if use_resnet:
+        print("Model utilizando resnet")
+        torch.hub._validate_not_a_forked_repo=lambda a,b,c: True
+        net = torch.hub.load('pytorch/vision:v0.10.0', 'resnet18', pretrained=True)
+    else:
+        net = LempiraNet(ratio_width=ratio_w, ratio_height=ratio_h, out=18)
+
+    if pretrain and not use_resnet:
         print("Model pre entrenado se botara la ultima layer")
-        net = LempiraNet(ratio_width=ratio_w, ratio_height=ratio_h, out=67)
         net.load_state_dict(torch.load(
             model_name, map_location=torch.device(device)))
         net.drop_last_layer(len(trainset.classes))
-    else:
-        net = LempiraNet(ratio_width=ratio_w, ratio_height=ratio_h)
+    elif pretrain and use_resnet:
+        new_linear = torch.nn.Linear(net.fc.in_features, 18)
+        net.fc = new_linear
 
     if use_cuda:
         net = net.to(device)
         print('Modelo enviado a CUDA')
-    model_summary(net)
 
     # funcion de perdida (cross entropy loss)
     criterion = torch.nn.CrossEntropyLoss()

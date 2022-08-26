@@ -11,11 +11,12 @@ from Lempira import LempiraNet
 def main():
     if len(sys.argv) < 4:
         print("Uso:")
-        print(f"\tpython {sys.argv[0]} in_model in_dir out_json")
+        print(f"\tpython {sys.argv[0]} in_model in_dir out_json use_resnet")
         return
     in_model = sys.argv[1]
     in_dir = sys.argv[2]
     out_json = sys.argv[3]
+    use_resnet = sys.argv[4]
 
     preprocessed = True
     if preprocessed:
@@ -24,10 +25,14 @@ def main():
     else:
         target_w, target_h = 256, 256
         ratio_w, ratio_h = 4, 4
-
+        
     data = BilletesDataset(root_dir=in_dir, etiquetas={},
                            size=(target_w, target_h))
-    model = LempiraNet(ratio_width=ratio_w, ratio_height=ratio_h)
+    if use_resnet:
+        model = torch.hub.load('pytorch/vision:v0.10.0', 'resnet18', pretrained=True)
+    else:
+        model = LempiraNet(ratio_width=ratio_w, ratio_height=ratio_h)
+        
     model.load_state_dict(torch.load(in_model))
     model.eval()
     loader = DataLoader(data, batch_size=1, shuffle=False)
